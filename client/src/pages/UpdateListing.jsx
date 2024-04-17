@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getDownloadURL,
   getStorage,
@@ -7,14 +7,16 @@ import {
 } from 'firebase/storage';
 import { app } from '../firebase';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-export default function CreateListing() {
+import { useNavigate,useParams } from 'react-router-dom';
+export default function UpdateListing() {
   const { currentUser } = useSelector((state) => state.user);
   const navigate = useNavigate();
+  const params=useParams();
   const [uploading, setUploading] = useState(false);
   const [files,setfiles]=useState([]);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
+ 
   const[imageuploadError,setImageuploadError]=useState(false);
   const [formdata,setformdata]=useState({
     imageurl:[],
@@ -29,9 +31,25 @@ export default function CreateListing() {
     offer: false,
     parking: false,
     furnished: false,
-  });
- 
-  
+  });  
+
+  useEffect(()=>{
+    const fetchListing=async()=>{
+      const listingID = params.listingID;
+      const res=await fetch(`/api/listing/getUserData/${listingID}`);
+      
+      const data=await res.json();
+     
+      if(data.success===false){
+        console.log(data.message);
+        return;
+      }
+      setformdata(data);
+      console.log(data);
+      
+    };
+    fetchListing();
+  }, []);
   const handleChange = (e) => {
     if (e.target.id === 'sale' || e.target.id === 'rent') {
       setformdata({
@@ -102,10 +120,9 @@ export default function CreateListing() {
         promises.push(storeImage(files[i]));
       }
       Promise.all(promises).then((urls)=>{
-          setformdata({...formdata,
-          imageurl:formdata.imageurl.concat(urls), 
-        }
-       );
+        setformdata({...formdata,
+          imageurl:formdata.imageurl.concat(urls),
+        });
       setImageuploadError(false);
       setUploading(false);
     }).catch((err)=>{
@@ -121,16 +138,20 @@ export default function CreateListing() {
   const handleSubmit=async (e)=>{
     e.preventDefault();
     try {
+      if (formdata.imageurl.length < 1)
+        return setError('You must upload at least one image');
+      if (+formdata.regularPrice < +formdata.discountPrice)
+        return setError('Discount price must be lower than regular price');
       setError(false);
       setLoading(true);
-      const res=await fetch('/api/listing/create',{
+      const listingID = params.listingID;
+      const res=await fetch(`/api/listing/update/${listingID}`,{
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({...formdata,userRef: currentUser._id,}),
       });
-      
       const data = await res.json();
       setLoading(false);
       if (data.success === false) {
@@ -142,12 +163,11 @@ export default function CreateListing() {
       setLoading(false);
     }
   };
-  console.log(formdata);
 
   return (
     <main className='p-3 max-w-4xl mx-auto'>
       <h1 className='text-3xl font-semibold text-center my-7'>
-        Create a Listing
+        Update Listing
       </h1>
       <form  onSubmit={handleSubmit} className='flex flex-col sm:flex-row gap-4'>
         <div className='flex flex-col gap-4 flex-1'>
@@ -278,7 +298,7 @@ export default function CreateListing() {
           <p className='text-red-700 text-sm'>
             {imageuploadError && imageuploadError}
           </p>
-          {
+                   {
             formdata.imageurl.length>0 &&  formdata.imageurl.map((url,index)=>(
               <div key={url}
               className='flex justify-between p-3 border items-center'>
@@ -302,7 +322,7 @@ export default function CreateListing() {
             disabled={loading || uploading}
             className='p-3 bg-slate-700 text-white rounded-lg uppercase hover:opacity-95 disabled:opacity-80'
           >
-            {loading ? 'Creating...' : 'Create listing'}
+            {loading ? 'Creating...' : 'Update Listing'}
           </button>
           {error && <p className='text-red-700 text-sm'>{error}</p>}
         </div>
