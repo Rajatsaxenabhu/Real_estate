@@ -13,6 +13,8 @@ export default function CreateListing() {
   const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
   const [files,setfiles]=useState([]);
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const[imageuploadError,setImageuploadError]=useState(false);
   const [formdata,setformdata]=useState({
     imageurl:[],
@@ -30,6 +32,36 @@ export default function CreateListing() {
   });
   console.log(formdata.imageurl.length);
   
+  const handleChange = (e) => {
+    if (e.target.id === 'sale' || e.target.id === 'rent') {
+      setformdata({
+        ...formdata,
+        type: e.target.id,
+      });
+    }
+
+    if (
+      e.target.id === 'parking' ||
+      e.target.id === 'furnished' ||
+      e.target.id === 'offer'
+    ) {
+      setformdata({
+        ...formdata,
+        [e.target.id]: e.target.checked,
+      });
+    }
+
+    if (
+      e.target.type === 'number' ||
+      e.target.type === 'text' ||
+      e.target.type === 'textarea'
+    ) {
+      setformdata({
+        ...formdata,
+        [e.target.id]: e.target.value,
+      });
+    }
+  };
   const storeImage= async(file)=>{
     return new Promise((resolve,reject)=>{
     const storage = getStorage(app);
@@ -78,6 +110,29 @@ export default function CreateListing() {
       setUploading(false);
     }
   };
+  const handleSubmit=async (e)=>{
+    e.preventDefault();
+    try {
+      setError(false);
+      setLoading(true);
+      const res=await fetch('/api/listing/create',{
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({...formdata,userRef: currentUser._id,}),
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (data.success === false) {
+        setError(data.message);
+      }
+      navigate(`/listing/${data._id}`);
+    } catch (error) {
+      setError(error.message);
+      setLoading(false);
+    }
+  };
   console.log(formdata);
 
   return (
@@ -85,7 +140,7 @@ export default function CreateListing() {
       <h1 className='text-3xl font-semibold text-center my-7'>
         Create a Listing
       </h1>
-      <form className='flex flex-col sm:flex-row gap-4'>
+      <form  onSubmit={handleSubmit} className='flex flex-col sm:flex-row gap-4'>
         <div className='flex flex-col gap-4 flex-1'>
           <input
             type='text'
@@ -95,6 +150,8 @@ export default function CreateListing() {
             maxLength='62'
             minLength='10'
             required
+            onChange={handleChange}
+            value={formdata.name}
           />
           <textarea
             type='text'
@@ -102,6 +159,8 @@ export default function CreateListing() {
             className='border p-3 rounded-lg'
             id='description'
             required
+            onChange={handleChange}
+            value={formdata.description}
           />
           <input
             type='text'
@@ -109,26 +168,33 @@ export default function CreateListing() {
             className='border p-3 rounded-lg'
             id='address'
             required
+            onChange={handleChange}
+            value={formdata.address}
           />
           <div className='flex gap-6 flex-wrap'>
             <div className='flex gap-2'>
-              <input type='checkbox' id='sale' className='w-5' />
+              <input type='checkbox' id='sale' className='w-5' onChange={handleChange}
+                checked={formdata.type === 'sale'}/>
               <span>Sell</span>
             </div>
             <div className='flex gap-2'>
-              <input type='checkbox' id='rent' className='w-5' />
+              <input type='checkbox' id='rent' className='w-5' onChange={handleChange}
+                checked={formdata.type === 'rent'}/>
               <span>Rent</span>
             </div>
             <div className='flex gap-2'>
-              <input type='checkbox' id='parking' className='w-5' />
+              <input type='checkbox' id='parking' className='w-5' onChange={handleChange}
+                checked={formdata.parking}/>
               <span>Parking spot</span>
             </div>
             <div className='flex gap-2'>
-              <input type='checkbox' id='furnished' className='w-5' />
+              <input type='checkbox' id='furnished' className='w-5' onChange={handleChange}
+                checked={formdata.furnished}/>
               <span>Furnished</span>
             </div>
             <div className='flex gap-2'>
-              <input type='checkbox' id='offer' className='w-5' />
+              <input type='checkbox' id='offer' className='w-5' onChange={handleChange}
+                checked={formdata.offer}/>
               <span>Offer</span>
             </div>
           </div>
@@ -141,6 +207,8 @@ export default function CreateListing() {
                 max='10'
                 required
                 className='p-3 border border-gray-300 rounded-lg'
+                onChange={handleChange}
+                value={formdata.bedrooms}
               />
               <p>Beds</p>
             </div>
@@ -152,6 +220,8 @@ export default function CreateListing() {
                 max='10'
                 required
                 className='p-3 border border-gray-300 rounded-lg'
+                onChange={handleChange}
+                value={formdata.bathrooms}
               />
               <p>Baths</p>
             </div>
@@ -159,10 +229,12 @@ export default function CreateListing() {
               <input
                 type='number'
                 id='regularPrice'
-                min='1'
-                max='10'
+                min='1000'
+                max='100000'
                 required
                 className='p-3 border border-gray-300 rounded-lg'
+                onChange={handleChange}
+                value={formdata.regularPrice}
               />
               <div className='flex flex-col items-center'>
                 <p>Regular price</p>
@@ -217,9 +289,13 @@ export default function CreateListing() {
             ))
           }
 
-          <button className='p-3 bg-slate-700 text-white rounded-lg uppercase hover:opacity-95 disabled:opacity-80'>
-            Create Listing
+          <button
+            disabled={loading || uploading}
+            className='p-3 bg-slate-700 text-white rounded-lg uppercase hover:opacity-95 disabled:opacity-80'
+          >
+            {loading ? 'Creating...' : 'Create listing'}
           </button>
+          {error && <p className='text-red-700 text-sm'>{error}</p>}
         </div>
       </form>
     </main>
